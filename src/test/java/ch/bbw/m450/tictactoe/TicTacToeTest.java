@@ -14,57 +14,76 @@ public class TicTacToeTest {
 	}
 
     @Test
-	void isWin_detectsRowWin() {
-		var board = new Stone[]{
-            null, Stone.CIRCLE, null,
-			Stone.CROSS, Stone.CROSS, Stone.CROSS,
-			Stone.CIRCLE, null, null
-		};
+    void isWin_detectsRowWin() {
+        var board = rowWinBoard();
 
 		assertThat(TicTacToeMain.isWin(board, Stone.CROSS)).isTrue();
 	}
 
     @Test
-	void isWin_detectsDiagonalWin() {
-		var board = new Stone[]{
-				Stone.CROSS, null, Stone.CIRCLE,
-				null, Stone.CROSS, null,
-				Stone.CIRCLE, null, Stone.CROSS
-		};
+    void isWin_detectsDiagonalWin() {
+        var board = diagonalWinBoard();
 
 		assertThat(TicTacToeMain.isWin(board, Stone.CROSS)).isTrue();
 	}
 
     @Test
     void play_rejectsUsingSamePlayerForCrossAndCircle() {
-        var samePlayer = new GreedyPlayer();
+        var player = greedyPlayer();
 
-        assertThatThrownBy(() -> TicTacToeMain.play(samePlayer, samePlayer))
-            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TicTacToeMain.play(player, player))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void isWin_returnsFalse_whenBoardHasNoWinner() {
-        Stone[] board = {
-            Stone.CROSS, Stone.CIRCLE, Stone.CROSS,
-            Stone.CROSS, Stone.CIRCLE, Stone.CIRCLE,
-            Stone.CIRCLE, Stone.CROSS, Stone.CROSS
-        };
+        var board = boardWithoutWinner();
 
-        boolean crossWon = TicTacToeMain.isWin(board, Stone.CROSS);
-        boolean circleWon = TicTacToeMain.isWin(board, Stone.CIRCLE);
-
-        assertThat(crossWon).isFalse();
-        assertThat(circleWon).isFalse();
+        assertThat(TicTacToeMain.isWin(board, Stone.CROSS)).isFalse();
+        assertThat(TicTacToeMain.isWin(board, Stone.CIRCLE)).isFalse();
     }
 
     @Test
     void play_twoGreedyPlayers_resultsInCrossWinning() {
-        var crossPlayer = new GreedyPlayer();
-        var circlePlayer = new GreedyPlayer();
+        var crossPlayer = greedyPlayer();
+        var circlePlayer = greedyPlayer();
 
-        var result = TicTacToeMain.play(crossPlayer, circlePlayer);
+        var winner = TicTacToeMain.play(crossPlayer, circlePlayer);
 
-        assertThat(result).isEqualTo(Stone.CROSS);
+        assertThat(winner).isEqualTo(Stone.CROSS);
+    }
+
+    
+    // Helpers
+
+    private GreedyPlayer greedyPlayer() {
+        return new GreedyPlayer();
+    }
+
+
+    // Fixtures
+
+    private Stone[] rowWinBoard() {
+        return new Stone[]{
+                null, Stone.CIRCLE, null,
+                Stone.CROSS, Stone.CROSS, Stone.CROSS,
+                Stone.CIRCLE, null, null
+        };
+    }
+
+    private Stone[] diagonalWinBoard() {
+        return new Stone[]{
+                Stone.CROSS, null, Stone.CIRCLE,
+                null, Stone.CROSS, null,
+                Stone.CIRCLE, null, Stone.CROSS
+        };
+    }
+
+    private Stone[] boardWithoutWinner() {
+        return new Stone[]{
+                Stone.CROSS, Stone.CIRCLE, Stone.CROSS,
+                Stone.CROSS, Stone.CIRCLE, Stone.CIRCLE,
+                Stone.CIRCLE, Stone.CROSS, Stone.CROSS
+        };
     }
 }
