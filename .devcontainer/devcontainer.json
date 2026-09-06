@@ -1,0 +1,18 @@
+{
+  "name": "tictactoe-java",
+
+  "image": "mcr.microsoft.com/devcontainers/base:alpine",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle"
+      ]
+    }
+  },
+
+  "postCreateCommand": "sudo apk add --no-cache openjdk21-jdk && chmod +x ./gradlew && java -version && javac -version && ./gradlew --version",
+
+  "remoteUser": "vscode"
+}
