@@ -13,10 +13,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 public class TicTacToeTest {
-    @Test
-    void dummy() {
-        assertThat(1 + 1).isEqualTo(2);
-    }
 
     @ParameterizedTest
     // test daten aus methode "winningboards" holen
