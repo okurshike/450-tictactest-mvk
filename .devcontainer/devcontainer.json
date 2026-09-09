@@ -1,7 +1,9 @@
 {
   "name": "tictactoe-java",
 
-  "image": "mcr.microsoft.com/devcontainers/base:alpine",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
 
   "customizations": {
     "vscode": {
@@ -12,7 +14,7 @@
     }
   },
 
-  "postCreateCommand": "sudo apk add --no-cache openjdk21-jdk && chmod +x ./gradlew && java -version && javac -version && ./gradlew --version",
+  "postCreateCommand": "chmod +x ./gradlew && ./gradlew --version",
 
   "remoteUser": "vscode"
 }
