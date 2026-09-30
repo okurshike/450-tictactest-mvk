@@ -1,0 +1,78 @@
+# when on main is pushed: 
+# run tests -> generate jacoco report -> run update-coverage.py
+# -> commit the changed csv with new data -> publish coverage page
+
+name: Coverage History
+
+# Only main belongs in the long-term graph. Measurements from temporary
+# feature branches would make the history misleading.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  # Do not let two pushes update the CSV at the same time. Both runs are kept
+  # because every main commit should get its own measurement.
+  group: coverage-history
+  cancel-in-progress: false
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Generate coverage
+        run: ./gradlew test jacocoTestReport
+
+      - name: Update coverage history
+        run: python3 scripts/update-coverage.py
+
+      - name: Save coverage history
+        # A runner is temporary, so the updated CSV must be committed if we
+        # want to keep it. [skip ci] prevents this bot commit from starting the
+        # workflows again and creating an endless loop.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage-page/coverage-history.csv
+          git diff --cached --quiet || git commit -m "Update coverage history [skip ci]"
+          git push
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # The HTML page and its CSV are packaged together and published as one
+      # small static website.
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: coverage-page
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

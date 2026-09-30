@@ -1,0 +1,63 @@
+name: Coverage Gate
+
+# The gate is only needed for pull requests into main. workflow_dispatch also
+# lets us try it manually from the Actions page.
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      # We need both versions at the same time so that their coverage can be
+      # measured independently. Separate folders keep them from overwriting
+      # each other.
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          # In a PR, use the exact commit from the source branch. During a
+          # manual run there is no PR commit, so github.sha is used instead.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: branch
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle executable
+        run: chmod +x main/gradlew branch/gradlew
+
+      - name: Measure main coverage
+        working-directory: main
+        run: ./gradlew test jacocoTestReport
+
+      - name: Measure branch coverage
+        working-directory: branch
+        run: ./gradlew test jacocoTestReport
+
+      - name: Compare coverage
+        # The script prints both values and their difference to the workflow
+        # summary. It exits with an error when the branch is worse than main.
+        run: >-
+          python3 branch/scripts/compare-coverage.py
+          main/build/reports/jacoco/test/jacocoTestReport.xml
+          branch/build/reports/jacoco/test/jacocoTestReport.xml

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>TicTacToe Coverage</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1>Test Coverage</h1>
+
+<canvas id="coverageChart"></canvas>
+
+<script>
+fetch("coverage-page/coverage-history.csv")
+    .then(response => response.text())
+    .then(text => {
+        const rows = text.trim().split("\n").slice(1);
+
+        const dates = [];
+        const coverage = [];
+
+        rows.forEach(row => {
+            const [date, commit, value] = row.split(",");
+            dates.push(date + " (" + commit + ")");
+            coverage.push(Number(value));
+        });
+
+        new Chart(
+            document.getElementById("coverageChart"),
+            {
+                type: "line",
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: "Line Coverage %",
+                        data: coverage
+                    }]
+                }
+            }
+        );
+    });
+</script>
+
+</body>
+</html>
