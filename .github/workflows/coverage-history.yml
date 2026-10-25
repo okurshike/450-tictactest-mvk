@@ -66,8 +66,14 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      # The HTML page and its CSV are packaged together and published as one
-      # small static website.
+      # Copy the full JaCoCo HTML report into the website. 
+      # This happens after the commit step, so the report
+      # is only published, not committed to the repository.
+      - name: Add JaCoCo HTML report to page
+        run: cp -r build/reports/jacoco/test/html coverage-page/report
+
+      # The HTML page, its CSV and the JaCoCo report are packaged together and
+      # published as one small static website.
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
