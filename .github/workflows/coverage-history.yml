@@ -66,18 +66,26 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      # Copy the full JaCoCo HTML report into the website. 
-      # This happens after the commit step, so the report
-      # is only published, not committed to the repository.
-      - name: Add JaCoCo HTML report to page
-        run: cp -r build/reports/jacoco/test/html coverage-page/report
+      # The JaCoCo HTML report (with the red/green bars) becomes the start page.
+      # The chart is inserted above its table: the canvas before the <h1>, the
+      # scripts before </body>. This happens after the commit step, so the
+      # report is only published, not committed to the repository.
+      - name: Assemble site with JaCoCo report and chart
+        run: |
+          mkdir site
+          cp -r build/reports/jacoco/test/html/. site/
+          cp coverage-page/coverage-history.csv coverage-page/coverage-chart.js site/
+          sed -i 's|</div><h1>|</div><h2>Coverage-Verlauf main</h2><div style="max-width: 900px"><canvas id="coverageChart"></canvas></div><hr/><h1>|' site/index.html
+          sed -i 's|</body>|<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script src="coverage-chart.js"></script></body>|' site/index.html
+          # Fail the run if the JaCoCo HTML layout changed and sed found nothing
+          grep -q coverageChart site/index.html
+          grep -q coverage-chart.js site/index.html
 
-      # The HTML page, its CSV and the JaCoCo report are packaged together and
-      # published as one small static website.
+      # Chart, CSV and JaCoCo report are published as one static website.
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: coverage-page
+          path: site
 
       - name: Deploy GitHub Pages
         id: deployment
