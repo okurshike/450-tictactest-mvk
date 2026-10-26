@@ -1,48 +1,43 @@
-name: Build and Push Container
+# Release workflow: pushing a version tag (e.g. v1.0.0) builds the dev
+# container image, publishes it on GHCR with that version and creates a
+# GitHub Release. See "Release- und Versionierungskonzept" in README.md.
+name: Release
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - .devcontainer/Dockerfile
-      - .github/workflows/ci.yml
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+    tags:
+      - "v*.*.*"
 
 jobs:
-  build-and-push:
+  release:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      packages: write
+      contents: write   # create the GitHub Release
+      packages: write   # push the image to GHCR
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run tests
-        run: |
-          chmod +x ./gradlew
-          ./gradlew test
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image
-        run: |
-          docker build \
-            -f .devcontainer/Dockerfile \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            .
+      # The image gets the tag name as version, e.g. ...:v1.0.0
+      - name: Build and push dev container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
 
-      - name: Push image
-        run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      # Release notes are generated from the commits since the last tag.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" --generate-notes
