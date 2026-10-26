@@ -1,6 +1,6 @@
 # when on main is pushed: 
 # run tests -> generate jacoco report -> run update-coverage.py
-# -> commit the changed csv with new data -> publish coverage page
+# -> commit the changed csv to the coverage-data branch -> publish coverage page
 
 name: Coverage History
 
@@ -49,17 +49,26 @@ jobs:
       - name: Generate coverage
         run: ./gradlew test jacocoTestReport
 
+      # The CSV lives on its own branch, not on main. main is protected and
+      # only accepts pull requests, so the bot could not push there.
+      - name: Checkout coverage data
+        uses: actions/checkout@v4
+        with:
+          ref: coverage-data
+          path: coverage-data
+
       - name: Update coverage history
-        run: python3 scripts/update-coverage.py
+        run: python3 scripts/update-coverage.py coverage-data/coverage-history.csv
 
       - name: Save coverage history
         # A runner is temporary, so the updated CSV must be committed if we
         # want to keep it. [skip ci] prevents this bot commit from starting the
-        # workflows again and creating an endless loop.
+        # CI workflow on the coverage-data branch.
+        working-directory: coverage-data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add coverage-page/coverage-history.csv
+          git add coverage-history.csv
           git diff --cached --quiet || git commit -m "Update coverage history [skip ci]"
           git push
 
@@ -74,7 +83,7 @@ jobs:
         run: |
           mkdir site
           cp -r build/reports/jacoco/test/html/. site/
-          cp coverage-page/coverage-history.csv coverage-page/coverage-chart.js site/
+          cp coverage-data/coverage-history.csv coverage-page/coverage-chart.js site/
           sed -i 's|</div><h1>|</div><h2>Coverage-Verlauf main</h2><div style="max-width: 900px"><canvas id="coverageChart"></canvas></div><hr/><h1>|' site/index.html
           sed -i 's|</body>|<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script src="coverage-chart.js"></script></body>|' site/index.html
           # Fail the run if the JaCoCo HTML layout changed and sed found nothing
