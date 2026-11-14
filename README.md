@@ -16,6 +16,7 @@ Java-TicTacToe mit automatisierten Tests, Coverage-Messung und CI/CD über GitHu
 | GitHub Actions | CI, Coverage-Gate, Coverage-Verlauf, Release |
 | GitHub Pages, Chart.js | Veröffentlicht Coverage-Verlauf und JaCoCo-Report |
 | Dev Container, GHCR | Einheitliche Entwicklungsumgebung als versioniertes Docker-Image |
+| OpenTofu, AWS EC2 | Infrastructure as Code: Server für das spätere Online-Deployment |
 
 ## Automatisierung der Tests (Ergänzung zum Testkonzept)
 
@@ -39,6 +40,37 @@ Erfolgskriterium: Alle Tests grün **und** die Coverage eines PR ist nicht tiefe
 
 So kommt nur Code auf `main`, der getestet ist und die Coverage nicht senkt.
 Darum speichert der Coverage-Bot seine CSV im Branch `coverage-data` und nicht auf `main`.
+
+## Infrastruktur (OpenTofu / AWS)
+
+`infra/main.tf` beschreibt eine EC2-Instanz (`t2.micro`), die per SSH erreichbar ist.
+
+**Rolle von Provider und Ressource:**
+
+- Der **Provider** (`aws`) ist das Plugin, das OpenTofu mit der AWS-API verbindet. Er legt fest, welche Plattform und welche Region verwendet wird, und führt die Änderungen dort aus.
+- Eine **Ressource** ist ein Objekt, das OpenTofu anlegt und verwaltet. Hier sind es `aws_key_pair` (öffentlicher SSH-Schlüssel), `aws_security_group` (Firewall, Port 22) und `aws_instance` (der Server).
+- **Variablen** machen Region, Instanztyp, Schlüsselpfad und SSH-Bereich konfigurierbar. **Outputs** geben nach dem Start die öffentliche IP, den DNS-Namen und den SSH-Befehl aus.
+
+**Ablauf** (PowerShell, AWS-Zugangsdaten müssen konfiguriert sein):
+
+```
+ssh-keygen -t ed25519 -f "$HOME\.ssh\tictactest"
+cd infra
+tofu init
+$ip = (Invoke-RestMethod https://checkip.amazonaws.com).Trim()
+tofu apply -var "ssh_cidr=$ip/32"
+ssh -i "$HOME\.ssh\tictactest" ec2-user@<public_ip>
+tofu destroy -var "ssh_cidr=$ip/32"
+```
+
+Der private Schlüssel liegt nur in `~/.ssh` und nie im Repository. Auch `*.tfstate` und `*.tfvars` sind über `.gitignore` ausgeschlossen, weil sie sensible Werte enthalten können.
+
+**Vorbereitung für das Deployment als Online-Container:** Der Server ist im Repository versioniert und lässt sich jederzeit gleich neu aufbauen. Für das Deployment kommen später dazu:
+
+1. Ein Image der Anwendung auf GHCR, analog zum Dev-Container-Image in `docker-publish.yml`.
+2. Docker auf der Instanz, zum Beispiel über `user_data` in `aws_instance`.
+3. Eine weitere `ingress`-Regel in der Security Group für den Port der Anwendung.
+4. Ein Deployment-Schritt, der sich per SSH verbindet und den Container startet.
 
 ## Release- und Versionierungskonzept
 
