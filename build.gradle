@@ -4,6 +4,9 @@ plugins {
 	id 'info.solidsoft.pitest' version '1.19.0'
 }
 
+// Single source of the version. The release tag must be "v" + version (checked in docker-publish.yml).
+version = '1.1.0'
+
 repositories {
 	mavenCentral()
 }
@@ -15,6 +18,14 @@ dependencies {
 	testImplementation 'org.assertj:assertj-core:3.26.3'
 	testImplementation 'org.junit-pioneer:junit-pioneer:2.3.0'
 	testImplementation 'net.jqwik:jqwik:1.9.2'
+}
+
+// makes the jar runnable with "java -jar"
+jar {
+    manifest {
+        attributes 'Main-Class': 'ch.bbw.m450.tictactoe.TicTacToeMain',
+                'Implementation-Version': project.version
+    }
 }
 
 jacoco {
