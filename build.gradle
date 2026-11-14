@@ -1,7 +1,11 @@
 plugins {
 	id 'java'
 	id 'jacoco'
+	id 'info.solidsoft.pitest' version '1.19.0'
 }
+
+// Single source of the version. The release tag must be "v" + version (checked in docker-publish.yml).
+version = '1.1.0'
 
 repositories {
 	mavenCentral()
@@ -12,6 +16,16 @@ dependencies {
 	testImplementation 'org.junit.jupiter:junit-jupiter'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testImplementation 'org.assertj:assertj-core:3.26.3'
+	testImplementation 'org.junit-pioneer:junit-pioneer:2.3.0'
+	testImplementation 'net.jqwik:jqwik:1.9.2'
+}
+
+// makes the jar runnable with "java -jar"
+jar {
+    manifest {
+        attributes 'Main-Class': 'ch.bbw.m450.tictactoe.TicTacToeMain',
+                'Implementation-Version': project.version
+    }
 }
 
 jacoco {
@@ -32,4 +46,29 @@ jacocoTestReport {
         xml.required = true
         csv.required = false
     }
+}
+
+// Branch gate: "./gradlew build" fails if less than 90 % of all branches are covered.
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            limit {
+                counter = 'BRANCH'
+                minimum = 0.90
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
+
+// Mutation testing: "./gradlew pitest", report in build/reports/pitest/index.html
+pitest {
+    targetClasses = ['ch.bbw.m450.tictactoe.*']
+    pitestVersion = '1.17.4'
+    junit5PluginVersion = '1.2.1'
+    outputFormats = ['HTML', 'XML']
+    timestampedReports = false
+    mutationThreshold = 80
 }

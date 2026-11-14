@@ -1,6 +1,8 @@
-# Release workflow: pushing a version tag (e.g. v1.0.0) builds the dev
-# container image, publishes it on GHCR with that version and creates a
-# GitHub Release. See "Release- und Versionierungskonzept" in README.md.
+# Release workflow: pushing a version tag (e.g. v1.1.0) checks the release
+# conditions, tests and builds the jar, publishes the dev container image on
+# GHCR with that version, creates a GitHub Release and opens a pull request
+# that switches the dev container (and therefore CI) to the new image.
+# See RELEASE.md.
 name: Release
 
 on:
@@ -16,9 +18,50 @@ jobs:
       contents: write   # create the GitHub Release
       packages: write   # push the image to GHCR
 
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed to check that the tag is on main
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Stop before anything is published if the tag does not fit.
+      - name: Check release conditions
+        id: version
+        run: |
+          chmod +x ./gradlew
+          version=$(./gradlew properties -q | awk '/^version:/ { print $2 }')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version '$version' in build.gradle"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tagged commit is not on main"
+            exit 1
+          fi
+          if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for [$version]"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # build runs all tests and the 90 % branch gate before the jar is released
+      - name: Test and build jar
+        run: ./gradlew build
+
+      # Play a whole game with the released jar: X wins on the diagonal 2-4-6
+      - name: Smoke test jar
+        run: |
+          printf '4\n8\n2\n6\n' | java -jar "build/libs/tictactoe-${{ steps.version.outputs.version }}.jar" | tee smoke.log
+          grep -q 'winner is: CROSS' smoke.log
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -27,17 +70,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The image gets the tag name as version, e.g. ...:v1.0.0
+      # The image gets the tag name as version, e.g. ...:v1.1.0
       - name: Build and push dev container image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: .devcontainer/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          tags: ${{ env.IMAGE }}
 
-      # Release notes are generated from the commits since the last tag.
+      - name: Smoke test image
+        run: docker run --rm "$IMAGE" java -version
+
+      # Release notes: the CHANGELOG section of this version
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${{ github.ref_name }}" --generate-notes
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v v="[$VERSION]" '/^## / { p = index($0, v) > 0; next } p' CHANGELOG.md > notes.md
+          echo "Dev container image: \`$IMAGE\`" >> notes.md
+          gh release create "$GITHUB_REF_NAME" "build/libs/tictactoe-$VERSION.jar" \
+            --title "TicTacToe $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+
+  # Bump PR: the new image is only used after this PR is reviewed and merged
+  # (with green CI on the new image). That merge is the release of the image.
+  bump-devcontainer:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set new image version
+        run: |
+          sed -i -E 's#("image": "ghcr.io/[^:]+:)[^"]+"#\1${{ github.ref_name }}"#' .devcontainer/devcontainer.json
+          grep -q ':${{ github.ref_name }}"' .devcontainer/devcontainer.json
+
+      # A PR created with GITHUB_TOKEN does not start CI, so the required
+      # checks would never run. BUMP_PR_TOKEN is a fine-grained PAT with
+      # "Contents" and "Pull requests" write access (see RELEASE.md).
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.BUMP_PR_TOKEN }}
+          branch: chore/devcontainer-${{ github.ref_name }}
+          base: main
+          title: "chore(devcontainer): use image ${{ github.ref_name }}"
+          commit-message: "chore(devcontainer): use image ${{ github.ref_name }}"
+          body: |
+            Automatically created by the release of `${{ github.ref_name }}`.
+            Switches `.devcontainer/devcontainer.json` and therefore CI to
+            `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`.
+            Merge when CI is green on the new image.
