@@ -12,7 +12,10 @@ Java-TicTacToe mit automatisierten Tests, Coverage-Messung und CI/CD über GitHu
 | --- | --- |
 | Java 21, Gradle | Build; `./gradlew build` kompiliert und testet |
 | JUnit 5, AssertJ | Unit Tests (inkl. parametrisierte Tests) und lesbare Assertions |
-| JaCoCo | Misst die Line Coverage, erzeugt XML- und HTML-Report |
+| JUnit Pioneer | `@StdIo`: Konsolen-Eingabe vorgeben und Ausgabe prüfen (HumanPlayer, ganzes Spiel über `main`) |
+| jqwik | Zusätzliches Testframework: Property-based Testing mit zufällig erzeugten Spielständen |
+| JaCoCo | Misst Line und Branch Coverage; `./gradlew build` scheitert unter 90 % Branch Coverage |
+| PIT (PITest) | Mutation Testing: prüft, ob die Tests Fehler im Code wirklich finden |
 | GitHub Actions | CI, Coverage-Gate, Coverage-Verlauf, Release |
 | GitHub Pages, Chart.js | Veröffentlicht Coverage-Verlauf und JaCoCo-Report |
 | Dev Container, GHCR | Einheitliche Entwicklungsumgebung als versioniertes Docker-Image |
@@ -24,22 +27,28 @@ Die Tests aus dem Testkonzept laufen automatisch in diesen Workflows (`.github/w
 
 | Workflow | Auslöser | Was passiert |
 | --- | --- | --- |
-| `ci.yml` | Push auf jeden Branch | `./gradlew build` (inkl. Tests und JaCoCo), Report als Artifact |
+| `ci.yml` | Push auf jeden Branch, PR auf `main` | Läuft **im Dev-Container-Image**: `./gradlew build pitest` (Tests, JaCoCo, 90-%-Branch-Gate, PIT). Reports als Artifacts |
 | `coverage-gate.yml` | Pull Request auf `main` | Vergleicht die Line Coverage von `main` und dem PR. Tiefer = FAIL |
 | `coverage-history.yml` | Push auf `main` | Hängt die Coverage an die CSV im Branch `coverage-data` an und veröffentlicht die Seite |
-| `docker-publish.yml` | Tag `v*.*.*` | Release: Dev-Container-Image auf GHCR und GitHub Release |
+| `docker-publish.yml` | Tag `v*.*.*` | Release (siehe [RELEASE.md](RELEASE.md)): prüfen, testen, JAR, Image auf GHCR, GitHub Release, Bump-PR |
 
-Erfolgskriterium: Alle Tests grün **und** die Coverage eines PR ist nicht tiefer als die von `main`.
+Erfolgskriterium: Alle Tests grün, Branch Coverage ≥ 90 % **und** die Coverage eines PR ist nicht tiefer als die von `main`.
+Branch-Schutz für `main`: siehe [RELEASE.md](RELEASE.md#branch-schutz-für-main).
+Weil `main` geschützt ist, speichert der Coverage-Bot seine CSV im Branch `coverage-data`.
 
-### Branch Protection für `main`
+### Testarten und Begriffe
 
-`main` ist geschützt (Settings → Branches → Branch protection rule für `main`):
+| Begriff | Bedeutung hier | Wo |
+| --- | --- | --- |
+| Line Coverage | Anteil der Codezeilen, die beim Testen mindestens einmal ausgeführt werden | JaCoCo-Report |
+| Branch Coverage | Anteil der Verzweigungen (`if`, `&&`, `\|\|`, `?:`), bei denen **beide** Richtungen getestet sind. Strenger als Line Coverage, weil eine Zeile mit `a && b` ausgeführt sein kann, ohne dass `b` je falsch war | Gate in `build.gradle`, aktuell 100 % |
+| Mutation Testing | PIT baut kleine Fehler (Mutanten) in den Code ein, z. B. `<` zu `<=` oder `==` zu `!=`. Ein guter Test schlägt dann fehl (Mutant „killed“). Überlebt ein Mutant, fehlt ein Test | `./gradlew pitest`, aktuell 72 von 74 Mutanten getötet (97 %) |
+| Property-based Testing | Statt fester Beispiele erzeugt jqwik viele zufällige Spielstände und prüft eine Regel, die immer gelten muss, z. B. „der Spieler wählt immer ein freies Feld“ | `PlayerPropertyTest` |
+| Perfect Player | Minimax: probiert jeden Zug und rechnet das Spiel bis zum Ende durch. Der Test prüft **alle** möglichen Spielverläufe und zeigt, dass er nie verliert | `PerfectPlayer`, `PerfectPlayerTest` |
 
-- Require a pull request before merging (kein direkter Push auf `main`)
-- Require status checks to pass: `build` (CI) und `compare` (Coverage Gate)
-
-So kommt nur Code auf `main`, der getestet ist und die Coverage nicht senkt.
-Darum speichert der Coverage-Bot seine CSV im Branch `coverage-data` und nicht auf `main`.
+Die zwei überlebenden Mutanten ändern kein prüfbares Verhalten: `>` zu `>=` im `PerfectPlayer` wählt bei
+gleich guten Zügen nur einen anderen, ebenso guten Zug. Die entfernte Ausgabe des Bretts vor einem ungültigen Zug
+ändert nichts am Spielablauf, sie ist nur Diagnose.
 
 ## Infrastruktur (OpenTofu / AWS)
 
@@ -74,27 +83,8 @@ Der private Schlüssel liegt nur in `~/.ssh` und nie im Repository. Auch `*.tfst
 
 ## Release- und Versionierungskonzept
 
-**Versionierung:** [Semantic Versioning](https://semver.org) `vMAJOR.MINOR.PATCH`
+Semantic Versioning, Release per Tag `vX.Y.Z`, Bump-PR für das Dev-Container-Image und Branch-Schutz:
+siehe [RELEASE.md](RELEASE.md). Änderungen pro Version: [CHANGELOG.md](CHANGELOG.md).
 
-| Teil | Erhöhen bei | Beispiel |
-| --- | --- | --- |
-| MAJOR | inkompatibler Änderung (z. B. andere Java-Version im Dev Container) | `v2.0.0` |
-| MINOR | neuer Funktion, rückwärtskompatibel | `v1.1.0` |
-| PATCH | Bugfix | `v1.0.1` |
-
-**Ablauf eines Releases:**
-
-1. Änderung auf einem Feature-Branch, Pull Request auf `main`. CI und Coverage Gate müssen grün sein.
-2. Nach dem Merge auf `main` einen Tag setzen und pushen:
-   ```
-   git checkout main
-   git pull
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
-3. Der Tag startet `docker-publish.yml`:
-   - baut das Dev-Container-Image und veröffentlicht es als `ghcr.io/okurshike/450-tictactest-mvk:v1.0.1`
-   - erstellt ein GitHub Release mit automatisch erzeugten Release Notes
-4. Soll der Dev Container die neue Version verwenden, wird `image` in `.devcontainer/devcontainer.json` per Pull Request angepasst.
-
-**Warum feste Versionen statt `latest`?** Jede Person bekommt genau dasselbe Image, und man kann jederzeit auf eine ältere Version zurück.
+**Warum feste Versionen statt `latest`?** Jede Person und die CI bekommen genau dasselbe Image, und man kann
+jederzeit auf eine ältere Version zurück.
