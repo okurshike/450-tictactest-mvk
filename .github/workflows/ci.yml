@@ -4,35 +4,63 @@ on:
   push:
       branches:
       - "**"
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  # The dev container image is the single source of the build environment.
+  # Its version stands only in .devcontainer/devcontainer.json; CI reads it from
+  # there, so the bump PR (docker-publish.yml) changes local and CI env together.
+  image:
     runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.read.outputs.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read dev container image
+        id: read
+        run: echo "name=$(jq -r .image .devcontainer/devcontainer.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read   # pull the image from GHCR
+
+    # JDK comes from the image, so no setup-java step is needed
+    container:
+      image: ${{ needs.image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # build compiles, runs the tests and (finalizedBy in build.gradle)
-      # creates the JaCoCo report. A failing test turns this step red.
-      - name: Build and test
-        run: ./gradlew build
+      # build = compile, tests, JaCoCo report and the 90 % branch gate
+      # (check -> jacocoTestCoverageVerification in build.gradle).
+      # pitest = mutation testing. A failing test or gate turns this step red.
+      - name: Build, test, branch gate and mutation testing
+        run: ./gradlew build pitest
 
       - name: Upload JaCoCo coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-coverage-report
           path: build/reports/jacoco/test/html/
- 
+
+      - name: Upload PIT mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-mutation-report
+          path: build/reports/pitest/
