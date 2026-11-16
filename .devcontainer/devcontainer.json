@@ -1,6 +1,6 @@
 {
   "name": "tictactoe-java",
-  "image": "ghcr.io/okurshike/450-tictactest-mvk:v1.0.0",
+  "image": "ghcr.io/okurshike/450-tictactest-mvk:v1.1.0",
 
   "customizations": {
     "vscode": {
