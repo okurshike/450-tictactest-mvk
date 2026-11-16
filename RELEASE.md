@@ -47,7 +47,7 @@ Die Version steht an **einer** Stelle: `version` in `build.gradle`. Der Workflow
 | Tag = `v` + `version` aus `build.gradle` | Abbruch, nichts veröffentlicht |
 | Getaggter Commit liegt auf `main` | Abbruch |
 | `CHANGELOG.md` hat einen Abschnitt für die Version | Abbruch |
-| `./gradlew build`: alle Tests grün, Branch Coverage ≥ 90 % | Abbruch |
+| `./gradlew build` im Dev-Container-Image: Unit- und E2E-Tests grün, Branch Coverage ≥ 90 % | Abbruch |
 | Smoke-Test: das JAR spielt ein ganzes Spiel bis „winner is: CROSS“ | Abbruch |
 | Image startet (`java -version`) | kein Release, kein Bump-PR |
 
@@ -55,10 +55,32 @@ Schlägt etwas fehl, gibt es keinen Release. Den Fehler per PR beheben, dann den
 (`git push origin :refs/tags/v1.1.0`). Ein Tag mit **veröffentlichtem** Release wird nie verschoben, dann gibt es
 eine neue PATCH-Version.
 
+War der Fehler nicht im Code (z. B. Ausfall von GitHub), den Workflow neu starten: **Actions → Release → Run
+workflow**, unter *Use workflow from* den **Tag** wählen. Auf einem Branch gestartet, tut der Workflow nichts.
+
+Der Release-Text enthält die Commit-ID, den CHANGELOG-Abschnitt und den Startbefehl. Angehängt sind das JAR und
+`tictactoe-X.Y.Z.jar.sha256`.
+
+## Veröffentlichten Release testen
+
+Erst wenn das veröffentlichte JAR selbst läuft, ist der Release erfolgreich:
+
+```bash
+mkdir release-test && cd release-test
+curl -LO https://github.com/okurshike/450-tictactest-mvk/releases/download/v1.1.0/tictactoe-1.1.0.jar
+curl -LO https://github.com/okurshike/450-tictactest-mvk/releases/download/v1.1.0/tictactoe-1.1.0.jar.sha256
+sha256sum -c tictactoe-1.1.0.jar.sha256      # muss "OK" ausgeben
+java -jar tictactoe-1.1.0.jar                # Spiel muss starten und bis zum Ende spielbar sein
+```
+
+Unter Windows: `Get-FileHash tictactoe-1.1.0.jar` und den Hash mit dem Inhalt der `.sha256`-Datei vergleichen.
+
 ## Dev-Container-Image und Bump-PR
 
 - Die Image-Version steht nur in `.devcontainer/devcontainer.json`. `ci.yml` liest sie dort aus
   (Job `image`) und startet den Build in diesem Container. Lokale Umgebung und CI sind dadurch gleich.
+- Ein PR, der `.devcontainer/` ändert, baut das Image schon im PR und prüft, dass Java startet
+  (`devcontainer-check.yml`). Veröffentlicht wird es dort nicht, damit es in der Registry keine ungeprüften Images gibt.
 - Neue Images entstehen nur über einen Release-Tag, nie mit `latest`. Ein altes Image bleibt verfügbar,
   ein Rollback ist ein PR, der die Version in `devcontainer.json` zurücksetzt.
 - **Einmalig einrichten:** Ein Fine-grained Personal Access Token (nur dieses Repo, Rechte *Contents* und

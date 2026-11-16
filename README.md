@@ -10,8 +10,8 @@ Java-TicTacToe mit automatisierten Tests, Coverage-Messung und CI/CD über GitHu
 
 | Technologie | Zweck |
 | --- | --- |
-| Java 21, Gradle | Build; `./gradlew build` kompiliert und testet |
-| JUnit 5, AssertJ | Unit Tests (inkl. parametrisierte Tests) und lesbare Assertions |
+| Java 21, Gradle | Build; `./gradlew build` kompiliert, testet (Unit + E2E) und prüft das Branch-Gate |
+| JUnit 6, AssertJ | Unit Tests (inkl. parametrisierte Tests) und lesbare Assertions |
 | JUnit Pioneer | `@StdIo`: Konsolen-Eingabe vorgeben und Ausgabe prüfen (HumanPlayer, ganzes Spiel über `main`) |
 | jqwik | Zusätzliches Testframework: Property-based Testing mit zufällig erzeugten Spielständen |
 | JaCoCo | Misst Line und Branch Coverage; `./gradlew build` scheitert unter 90 % Branch Coverage |
@@ -27,12 +27,22 @@ Die Tests aus dem Testkonzept laufen automatisch in diesen Workflows (`.github/w
 
 | Workflow | Auslöser | Was passiert |
 | --- | --- | --- |
-| `ci.yml` | Push auf jeden Branch, PR auf `main` | Läuft **im Dev-Container-Image**: `./gradlew build pitest` (Tests, JaCoCo, 90-%-Branch-Gate, PIT). Reports als Artifacts |
-| `coverage-gate.yml` | Pull Request auf `main` | Vergleicht die Line Coverage von `main` und dem PR. Tiefer = FAIL |
-| `coverage-history.yml` | Push auf `main` | Hängt die Coverage an die CSV im Branch `coverage-data` an und veröffentlicht die Seite |
-| `docker-publish.yml` | Tag `v*.*.*` | Release (siehe [RELEASE.md](RELEASE.md)): prüfen, testen, JAR, Image auf GHCR, GitHub Release, Bump-PR |
+| `ci.yml` | Push auf jeden Branch, PR auf `main` | `./gradlew build pitest` (Unit-Tests, E2E-Tests, JaCoCo, 90-%-Branch-Gate, PIT). Reports als Artifacts |
+| `coverage-gate.yml` | Pull Request auf `main` | Vergleicht die Branch Coverage von `main` und dem PR. Tiefer = FAIL. Ergebnis als Kommentar im PR |
+| `coverage-history.yml` | Push auf `main` | Hängt die Branch Coverage an `branch-coverage-history.csv` im Branch `coverage-data` an und veröffentlicht die Seite |
+| `docker-publish.yml` | Tag `v*.*.*` | Release (siehe [RELEASE.md](RELEASE.md)): prüfen, testen, JAR + Prüfsumme, Image auf GHCR, GitHub Release, Bump-PR |
+| `devcontainer-check.yml` | PR, der `.devcontainer/` ändert | Baut das Image und prüft, dass Java darin startet (ohne es zu veröffentlichen) |
+| `devcontainer-image.yml` | wird von den anderen aufgerufen | Liest das Image aus `devcontainer.json` |
 
-Erfolgskriterium: Alle Tests grün, Branch Coverage ≥ 90 % **und** die Coverage eines PR ist nicht tiefer als die von `main`.
+**Gleiche Umgebung überall:** Alle Java-Schritte (CI, Coverage Gate, Coverage-Verlauf, Release) laufen im
+Dev-Container-Image aus `.devcontainer/devcontainer.json`, also mit demselben JDK wie lokal. Nur Python- und
+Docker-Schritte laufen auf dem normalen Runner, weil das Image dafür nicht gedacht ist.
+
+**Eine Coverage-Metrik:** Build-Gate, PR-Vergleich und Verlauf messen alle **Branch Coverage**. Sie ist strenger
+als Line Coverage (siehe unten). Die alte Line-Coverage-Historie bleibt als `coverage-history.csv` im Branch
+`coverage-data` erhalten, wird aber nicht mit den Branch-Werten gemischt.
+
+Erfolgskriterium: Alle Tests grün, Branch Coverage ≥ 90 % **und** die Branch Coverage eines PR ist nicht tiefer als die von `main`.
 Branch-Schutz für `main`: siehe [RELEASE.md](RELEASE.md#branch-schutz-für-main).
 Weil `main` geschützt ist, speichert der Coverage-Bot seine CSV im Branch `coverage-data`.
 
@@ -42,7 +52,8 @@ Weil `main` geschützt ist, speichert der Coverage-Bot seine CSV im Branch `cove
 | --- | --- | --- |
 | Line Coverage | Anteil der Codezeilen, die beim Testen mindestens einmal ausgeführt werden | JaCoCo-Report |
 | Branch Coverage | Anteil der Verzweigungen (`if`, `&&`, `\|\|`, `?:`), bei denen **beide** Richtungen getestet sind. Strenger als Line Coverage, weil eine Zeile mit `a && b` ausgeführt sein kann, ohne dass `b` je falsch war | Gate in `build.gradle`, aktuell 100 % |
-| Mutation Testing | PIT baut kleine Fehler (Mutanten) in den Code ein, z. B. `<` zu `<=` oder `==` zu `!=`. Ein guter Test schlägt dann fehl (Mutant „killed“). Überlebt ein Mutant, fehlt ein Test | `./gradlew pitest`, aktuell 72 von 74 Mutanten getötet (97 %) |
+| Mutation Testing | PIT baut kleine Fehler (Mutanten) in den Code ein, z. B. `<` zu `<=` oder `==` zu `!=`. Ein guter Test schlägt dann fehl (Mutant „killed“). Überlebt ein Mutant, fehlt ein Test | `./gradlew pitest`, aktuell 76 von 78 Mutanten getötet (97 %) |
+| End-to-End-Test | Eigene Teststufe (`src/e2eTest`, `./gradlew e2eTest`): startet das gebaute JAR als eigenen Prozess wie ein Benutzer und spielt ganze Spiele über die Konsole: X gewinnt, O gewinnt, Müll-Eingaben, besetztes Feld, Eingabe endet. Jeder Test hat ein Timeout, damit ein hängendes Spiel die CI nicht blockiert | `TicTacToeE2ETest` |
 | Property-based Testing | Statt fester Beispiele erzeugt jqwik viele zufällige Spielstände und prüft eine Regel, die immer gelten muss, z. B. „der Spieler wählt immer ein freies Feld“ | `PlayerPropertyTest` |
 | Perfect Player | Minimax: probiert jeden Zug und rechnet das Spiel bis zum Ende durch. Der Test prüft **alle** möglichen Spielverläufe und zeigt, dass er nie verliert | `PerfectPlayer`, `PerfectPlayerTest` |
 
@@ -71,6 +82,8 @@ tofu apply -var "ssh_cidr=$ip/32"
 ssh -i "$HOME\.ssh\tictactest" ec2-user@<public_ip>
 tofu destroy -var "ssh_cidr=$ip/32"
 ```
+
+`infra/.terraform.lock.hcl` ist committet und legt die genaue Version des AWS-Providers fest (inkl. Prüfsummen), damit `tofu init` überall denselben Provider lädt.
 
 Der private Schlüssel liegt nur in `~/.ssh` und nie im Repository. Auch `*.tfstate` und `*.tfvars` sind über `.gitignore` ausgeschlossen, weil sie sensible Werte enthalten können.
 
