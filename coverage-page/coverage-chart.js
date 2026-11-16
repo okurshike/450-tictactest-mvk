@@ -1,9 +1,9 @@
 // Draws the coverage history of main above the JaCoCo report.
-// The workflow copies this file and coverage-history.csv next to the
+// The workflow copies this file and branch-coverage-history.csv next to the
 // JaCoCo index.html and inserts the <canvas id="coverageChart"> into it.
 
 // no-store: always load the newest CSV instead of a cached one.
-fetch("coverage-history.csv", { cache: "no-store" })
+fetch("branch-coverage-history.csv", { cache: "no-store" })
     .then(response => {
         if (!response.ok) {
             throw new Error("CSV not found (HTTP " + response.status + ")");
@@ -30,7 +30,7 @@ fetch("coverage-history.csv", { cache: "no-store" })
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: "Line Coverage %",
+                        label: "Branch Coverage %",
                         data: coverage,
                         borderColor: "#2a7ae2",
                         backgroundColor: "#2a7ae2",

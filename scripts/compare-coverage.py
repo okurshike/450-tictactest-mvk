@@ -1,16 +1,16 @@
-"""Compare line coverage from main with the branch or pull request."""
+"""Compare branch coverage from main with the branch or pull request."""
 
 import os
 import sys
 from pathlib import Path
 
-from jacoco import line_coverage
+from jacoco import branch_coverage_percent
 
 if len(sys.argv) != 3:
     raise SystemExit("Usage: compare-coverage.py MAIN_REPORT BRANCH_REPORT")
 
-main_coverage = line_coverage(Path(sys.argv[1]))
-branch_coverage = line_coverage(Path(sys.argv[2]))
+main_coverage = branch_coverage_percent(Path(sys.argv[1]))
+branch_coverage = branch_coverage_percent(Path(sys.argv[2]))
 difference = branch_coverage - main_coverage
 # Equal coverage is allowed: the assignment only rejects a branch when its
 # coverage is lower than main.
@@ -20,7 +20,7 @@ result = "PASS" if passed else "FAIL"
 lines = [
     "## Test Coverage Gate",
     "",
-    "| Version | Line Coverage |",
+    "| Version | Branch Coverage |",
     "| --- | ---: |",
     f"| main | {main_coverage:.2f} % |",
     f"| Branch | {branch_coverage:.2f} % |",
