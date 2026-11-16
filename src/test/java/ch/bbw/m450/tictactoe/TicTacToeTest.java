@@ -111,6 +111,15 @@ public class TicTacToeTest {
         assertThat(out.capturedString()).contains("winner is: CROSS");
     }
 
+    // Eingabe endet mitten im Spiel (Ctrl-D): sauber abbrechen statt Stacktrace
+    @Test
+    @StdIo({"4"})
+    void main_abortsCleanlyWhenInputEnds(StdOut out) {
+        TicTacToeMain.main(new String[0]);
+
+        assertThat(out.capturedString()).contains("game aborted");
+    }
+
     // Helpers
     private GreedyPlayer greedyPlayer() {
         return new GreedyPlayer();
