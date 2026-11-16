@@ -1,25 +1,37 @@
 # Release workflow: pushing a version tag (e.g. v1.1.0) checks the release
-# conditions, tests and builds the jar, publishes the dev container image on
-# GHCR with that version, creates a GitHub Release and opens a pull request
-# that switches the dev container (and therefore CI) to the new image.
-# See RELEASE.md.
+# conditions, tests and builds the jar in the dev container image, publishes
+# the dev container image on GHCR with that version, creates a GitHub Release
+# and opens a pull request that switches the dev container (and therefore CI)
+# to the new image. See RELEASE.md.
 name: Release
 
 on:
   push:
     tags:
       - "v*.*.*"
+  # Manual rerun of a failed release: Actions -> Release -> Run workflow,
+  # "Use workflow from" = the tag. Started on a branch, nothing happens.
+  workflow_dispatch:
 
 jobs:
-  release:
+  image:
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/devcontainer-image.yml
+
+  # Java part runs in the dev container image (same JDK as locally and in CI)
+  build:
+    needs: image
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write   # create the GitHub Release
-      packages: write   # push the image to GHCR
-
-    env:
-      IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
@@ -27,16 +39,12 @@ jobs:
         with:
           fetch-depth: 0   # needed to check that the tag is on main
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
       # Stop before anything is published if the tag does not fit.
       - name: Check release conditions
         id: version
         run: |
+          # the workspace belongs to the runner user, not to root in the container
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           chmod +x ./gradlew
           version=$(./gradlew properties -q | awk '/^version:/ { print $2 }')
           if [ "$GITHUB_REF_NAME" != "v$version" ]; then
@@ -53,7 +61,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # build runs all tests and the 90 % branch gate before the jar is released
+      # build runs unit tests, the 90 % branch gate and the end-to-end tests
       - name: Test and build jar
         run: ./gradlew build
 
@@ -62,6 +70,40 @@ jobs:
         run: |
           printf '4\n8\n2\n6\n' | java -jar "build/libs/tictactoe-${{ steps.version.outputs.version }}.jar" | tee smoke.log
           grep -q 'winner is: CROSS' smoke.log
+
+      # The checksum proves that a downloaded jar is exactly the released one
+      - name: Create SHA-256 checksum
+        working-directory: build/libs
+        run: sha256sum "tictactoe-${{ steps.version.outputs.version }}.jar" > "tictactoe-${{ steps.version.outputs.version }}.jar.sha256"
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-jar
+          path: build/libs/tictactoe-*
+
+  # Docker and gh run on the normal runner
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # create the GitHub Release
+      packages: write   # push the image to GHCR
+
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+      VERSION: ${{ needs.build.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download jar
+        uses: actions/download-artifact@v4
+        with:
+          name: release-jar
+          path: dist
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -82,16 +124,22 @@ jobs:
       - name: Smoke test image
         run: docker run --rm "$IMAGE" java -version
 
-      # Release notes: the CHANGELOG section of this version
+      # Release notes: commit, CHANGELOG section of this version and how to start it
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          awk -v v="[$VERSION]" '/^## / { p = index($0, v) > 0; next } p' CHANGELOG.md > notes.md
-          echo "Dev container image: \`$IMAGE\`" >> notes.md
-          gh release create "$GITHUB_REF_NAME" "build/libs/tictactoe-$VERSION.jar" \
+          {
+            echo "**Commit:** $GITHUB_SHA"
+            echo "**Dev container image:** \`$IMAGE\`"
+            echo
+            awk -v v="[$VERSION]" '/^## / { p = index($0, v) > 0; next } p' CHANGELOG.md
+            echo
+            echo "**Starten** (Java 21): \`java -jar tictactoe-$VERSION.jar\`"
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" "dist/tictactoe-$VERSION.jar" "dist/tictactoe-$VERSION.jar.sha256" \
             --title "TicTacToe $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
   # Bump PR: the new image is only used after this PR is reviewed and merged
   # (with green CI on the new image). That merge is the release of the image.

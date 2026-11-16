@@ -1,0 +1,22 @@
+# A change to the dev container is built and smoke-tested in its pull request,
+# so a broken Dockerfile is found before it reaches main. It is not pushed:
+# images are only published by a release tag (docker-publish.yml).
+name: Dev container check
+
+on:
+  pull_request:
+    paths:
+      - ".devcontainer/**"
+
+jobs:
+  image-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t devcontainer-check -f .devcontainer/Dockerfile .
+
+      - name: Smoke test image
+        run: docker run --rm devcontainer-check java -version

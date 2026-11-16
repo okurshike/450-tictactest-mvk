@@ -12,12 +12,33 @@ repositories {
 }
 
 dependencies {
-	testImplementation platform('org.junit:junit-bom:5.11.4')
+	testImplementation platform('org.junit:junit-bom:6.1.3')
 	testImplementation 'org.junit.jupiter:junit-jupiter'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testImplementation 'org.assertj:assertj-core:3.26.3'
+	testImplementation 'org.assertj:assertj-core:3.27.7'
 	testImplementation 'org.junit-pioneer:junit-pioneer:2.3.0'
-	testImplementation 'net.jqwik:jqwik:1.9.2'
+	testImplementation 'net.jqwik:jqwik:1.10.2'
+}
+
+// End-to-end tests (src/e2eTest): start the real jar as its own process and play whole games over stdin/stdout
+sourceSets {
+	e2eTest
+}
+
+configurations {
+	e2eTestImplementation.extendsFrom testImplementation
+	e2eTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('e2eTest', Test) {
+	description = 'Plays complete games against the built jar.'
+	group = 'verification'
+	testClassesDirs = sourceSets.e2eTest.output.classesDirs
+	classpath = sourceSets.e2eTest.runtimeClasspath
+	useJUnitPlatform()
+	dependsOn jar
+	systemProperty 'tictactoe.jar', jar.archiveFile.get().asFile.absolutePath
+	shouldRunAfter test
 }
 
 // makes the jar runnable with "java -jar"
@@ -29,7 +50,7 @@ jar {
 }
 
 jacoco {
-    toolVersion = "0.8.13"
+    toolVersion = "0.8.16"
 }
 
 test {
@@ -61,13 +82,13 @@ jacocoTestCoverageVerification {
     }
 }
 
-check.dependsOn jacocoTestCoverageVerification
+check.dependsOn jacocoTestCoverageVerification, e2eTest
 
 // Mutation testing: "./gradlew pitest", report in build/reports/pitest/index.html
 pitest {
     targetClasses = ['ch.bbw.m450.tictactoe.*']
-    pitestVersion = '1.17.4'
-    junit5PluginVersion = '1.2.1'
+    pitestVersion = '1.30.1'
+    junit5PluginVersion = '1.2.3'
     outputFormats = ['HTML', 'XML']
     timestampedReports = false
     mutationThreshold = 80

@@ -13,16 +13,7 @@ jobs:
   # Its version stands only in .devcontainer/devcontainer.json; CI reads it from
   # there, so the bump PR (docker-publish.yml) changes local and CI env together.
   image:
-    runs-on: ubuntu-latest
-    outputs:
-      name: ${{ steps.read.outputs.name }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Read dev container image
-        id: read
-        run: echo "name=$(jq -r .image .devcontainer/devcontainer.json)" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/devcontainer-image.yml
 
   build:
     needs: image
@@ -45,8 +36,8 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # build = compile, tests, JaCoCo report and the 90 % branch gate
-      # (check -> jacocoTestCoverageVerification in build.gradle).
+      # build = compile, unit tests, JaCoCo report, 90 % branch gate and the
+      # end-to-end tests against the jar (check in build.gradle).
       # pitest = mutation testing. A failing test or gate turns this step red.
       - name: Build, test, branch gate and mutation testing
         run: ./gradlew build pitest
@@ -57,6 +48,13 @@ jobs:
         with:
           name: jacoco-coverage-report
           path: build/reports/jacoco/test/html/
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/
 
       - name: Upload PIT mutation report
         if: always()

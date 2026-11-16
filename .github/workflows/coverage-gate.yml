@@ -13,10 +13,22 @@ on:
 
 permissions:
   contents: read
+  packages: read        # pull the dev container image
+  pull-requests: write  # post the result as a PR comment
 
 jobs:
-  compare:
+  image:
+    uses: ./.github/workflows/devcontainer-image.yml
+
+  # Java part runs in the dev container image (same JDK as locally and in CI)
+  measure:
+    needs: image
     runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       # reference version
@@ -32,28 +44,57 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: branch
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Make Gradle executable
         run: chmod +x main/gradlew branch/gradlew
       # generate jacoco xml for main
       - name: Measure main coverage
         working-directory: main
         run: ./gradlew test jacocoTestReport
-      # generate jacoco xml for main
+      # generate jacoco xml for the branch
       - name: Measure branch coverage
         working-directory: branch
         run: ./gradlew test jacocoTestReport
 
+      - name: Upload both reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: |
+            main/build/reports/jacoco/test/jacocoTestReport.xml
+            branch/build/reports/jacoco/test/jacocoTestReport.xml
+
+  # The image has no Python, so the comparison runs on the normal runner.
+  # Job name "compare" is the required status check of the branch protection.
+  compare:
+    needs: measure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+          path: reports
+
       - name: Compare coverage
+        shell: bash   # with pipefail: a FAIL of the script still fails the step despite tee
         run: >-
-          python3 branch/scripts/compare-coverage.py
-          main/build/reports/jacoco/test/jacocoTestReport.xml
-          branch/build/reports/jacoco/test/jacocoTestReport.xml
+          python3 scripts/compare-coverage.py
+          reports/main/build/reports/jacoco/test/jacocoTestReport.xml
+          reports/branch/build/reports/jacoco/test/jacocoTestReport.xml
+          | tee comment.md
+
+      # One comment per PR, updated on every push instead of adding a new one each time
+      - name: Comment result on pull request
+        if: always() && github.event_name == 'pull_request' && hashFiles('comment.md') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR" --body-file comment.md --edit-last --create-if-none \
+            || gh pr comment "$PR" --body-file comment.md

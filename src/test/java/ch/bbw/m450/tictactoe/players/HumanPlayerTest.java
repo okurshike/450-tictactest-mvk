@@ -24,4 +24,15 @@ class HumanPlayerTest {
                 .contains("next CROSS? (0-8)")
                 .contains("next CIRCLE? (0-8)");
     }
+
+    // Text, leere Zeile, zu grosse Zahl, besetztes Feld: jedes Mal neu fragen statt abstürzen
+    @Test
+    @StdIo({"abc", "", "99", "0", " 5 "})
+    void play_asksAgainOnInvalidInput(StdOut out) {
+        var board = new Stone[TicTacToeMain.BOARD_SIZE];
+        board[0] = Stone.CIRCLE;
+
+        assertThat(new HumanPlayer().play(board, Stone.CROSS)).isEqualTo(5);
+        assertThat(out.capturedLines()).filteredOn(l -> l.contains("Choose a free field")).hasSize(4);
+    }
 }

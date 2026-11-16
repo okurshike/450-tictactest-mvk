@@ -1,4 +1,4 @@
-"""Add the current JaCoCo line coverage to the CSV used by GitHub Pages."""
+"""Add the current JaCoCo branch coverage to the CSV used by GitHub Pages."""
 
 import csv
 import os
@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from jacoco import line_coverage
+from jacoco import branch_coverage_percent
 
 if len(sys.argv) != 2:
     raise SystemExit("Usage: update-coverage.py HISTORY_CSV")
@@ -14,7 +14,7 @@ if len(sys.argv) != 2:
 report = Path("build/reports/jacoco/test/jacocoTestReport.xml")
 history = Path(sys.argv[1])
 
-coverage = line_coverage(report)
+coverage = branch_coverage_percent(report)
 
 commit = os.environ.get("GITHUB_SHA", "local")[:7]
 date = datetime.now(timezone.utc).strftime("%Y-%m-%d")

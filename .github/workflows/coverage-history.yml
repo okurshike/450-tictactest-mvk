@@ -1,5 +1,5 @@
-# when on main is pushed: 
-# run tests -> generate jacoco report -> run update-coverage.py
+# when on main is pushed:
+# run tests in the dev container image -> generate jacoco report -> run update-coverage.py
 # -> commit the changed csv to the coverage-data branch -> publish coverage page
 
 name: Coverage History
@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
   pages: write
   id-token: write
 
@@ -23,7 +24,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  image:
+    uses: ./.github/workflows/devcontainer-image.yml
+
+  # Java part runs in the dev container image (same JDK as locally and in CI)
+  measure:
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Generate coverage
+        run: ./gradlew test jacocoTestReport
+
+      - name: Upload JaCoCo report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: build/reports/jacoco/test/
+
+  # The image has no Python, so CSV and page are built on the normal runner.
   coverage:
+    needs: measure
     runs-on: ubuntu-latest
 
     environment:
@@ -34,20 +66,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Download JaCoCo report
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Make Gradle executable
-        run: chmod +x gradlew
-
-      - name: Generate coverage
-        run: ./gradlew test jacocoTestReport
+          name: jacoco-report
+          path: build/reports/jacoco/test
 
       # The CSV lives on its own branch, not on main. main is protected and
       # only accepts pull requests, so the bot could not push there.
@@ -57,8 +80,10 @@ jobs:
           ref: coverage-data
           path: coverage-data
 
+      # Branch coverage gets its own CSV. The old coverage-history.csv holds
+      # line coverage and stays as an archive, mixing both would mislead.
       - name: Update coverage history
-        run: python3 scripts/update-coverage.py coverage-data/coverage-history.csv
+        run: python3 scripts/update-coverage.py coverage-data/branch-coverage-history.csv
 
       - name: Save coverage history
         # A runner is temporary, so the updated CSV must be committed if we
@@ -68,7 +93,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add coverage-history.csv
+          git add branch-coverage-history.csv
           git diff --cached --quiet || git commit -m "Update coverage history [skip ci]"
           git push
 
@@ -83,8 +108,8 @@ jobs:
         run: |
           mkdir site
           cp -r build/reports/jacoco/test/html/. site/
-          cp coverage-data/coverage-history.csv coverage-page/coverage-chart.js site/
-          sed -i 's|</div><h1>|</div><h2>Coverage-Verlauf main</h2><div style="max-width: 900px"><canvas id="coverageChart"></canvas></div><hr/><h1>|' site/index.html
+          cp coverage-data/branch-coverage-history.csv coverage-page/coverage-chart.js site/
+          sed -i 's|</div><h1>|</div><h2>Branch-Coverage-Verlauf main</h2><div style="max-width: 900px"><canvas id="coverageChart"></canvas></div><hr/><h1>|' site/index.html
           sed -i 's|</body>|<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script src="coverage-chart.js"></script></body>|' site/index.html
           # Fail the run if the JaCoCo HTML layout changed and sed found nothing
           grep -q coverageChart site/index.html
