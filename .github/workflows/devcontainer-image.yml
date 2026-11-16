@@ -1,0 +1,23 @@
+# Reusable: returns the dev container image from .devcontainer/devcontainer.json.
+# Every workflow that builds Java runs in this image, so local environment,
+# CI, coverage gate, coverage history and release all use the same JDK.
+name: Dev container image
+
+on:
+  workflow_call:
+    outputs:
+      name:
+        value: ${{ jobs.read.outputs.name }}
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.read.outputs.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read dev container image
+        id: read
+        run: echo "name=$(jq -r .image .devcontainer/devcontainer.json)" >> "$GITHUB_OUTPUT"
