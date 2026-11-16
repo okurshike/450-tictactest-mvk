@@ -20,6 +20,27 @@ dependencies {
 	testImplementation 'net.jqwik:jqwik:1.9.2'
 }
 
+// End-to-end tests (src/e2eTest): start the real jar as its own process and play whole games over stdin/stdout
+sourceSets {
+	e2eTest
+}
+
+configurations {
+	e2eTestImplementation.extendsFrom testImplementation
+	e2eTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('e2eTest', Test) {
+	description = 'Plays complete games against the built jar.'
+	group = 'verification'
+	testClassesDirs = sourceSets.e2eTest.output.classesDirs
+	classpath = sourceSets.e2eTest.runtimeClasspath
+	useJUnitPlatform()
+	dependsOn jar
+	systemProperty 'tictactoe.jar', jar.archiveFile.get().asFile.absolutePath
+	shouldRunAfter test
+}
+
 // makes the jar runnable with "java -jar"
 jar {
     manifest {
@@ -61,7 +82,7 @@ jacocoTestCoverageVerification {
     }
 }
 
-check.dependsOn jacocoTestCoverageVerification
+check.dependsOn jacocoTestCoverageVerification, e2eTest
 
 // Mutation testing: "./gradlew pitest", report in build/reports/pitest/index.html
 pitest {
