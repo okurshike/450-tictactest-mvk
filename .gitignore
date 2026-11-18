@@ -23,3 +23,6 @@ bin/
 *.tfvars
 *.pem
 !infra/.terraform.lock.hcl
+
+# written by the release workflow
+frontend/version.txt
