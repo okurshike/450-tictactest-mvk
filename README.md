@@ -3,6 +3,7 @@
 Java-TicTacToe mit automatisierten Tests, Coverage-Messung und CI/CD über GitHub Actions.
 
 - Testkonzept: [docs/Testkonzept.pdf](docs/Testkonzept.pdf)
+- Webkonsole (Spiel im Browser mit ttyd): [docs/webkonsole.md](docs/webkonsole.md)
 - Coverage-Verlauf und JaCoCo-Report: https://okurshike.github.io/450-tictactest-mvk/
 - Dev-Container-Image: `ghcr.io/okurshike/450-tictactest-mvk`
 
