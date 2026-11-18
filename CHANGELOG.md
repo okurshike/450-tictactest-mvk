@@ -5,6 +5,13 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-18
+
+### Added
+- Web-Frontend (`frontend/`): Regeln, Konsole im Browser (ttyd im `<iframe>`), Backend- und Frontend-Version.
+- Release enthält `tictactest-frontend-<version>.zip` mit `version.txt`.
+- Dokumentation der Webkonsole (`docs/webkonsole.md`): Start, Konfiguration, Versionsabfrage, Speicherbedarf, Sicherheit.
+
 ## [1.2.0] - 2026-11-17
 
 ### Added
