@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TicTacTest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>TicTacTest</h1>
+    <p>TicTacToe in der Konsole, direkt im Browser.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="rules-title">
+      <h2 id="rules-title">Regeln</h2>
+      <ul>
+        <li>Du spielst <strong>X</strong> und beginnst. Der Computer spielt <strong>O</strong>.</li>
+        <li>Die Felder sind von 0 bis 8 nummeriert, oben links beginnend:
+          <pre>0  1  2
+3  4  5
+6  7  8</pre>
+        </li>
+        <li>Tippe die Nummer eines freien Feldes und drücke Enter.</li>
+        <li>Wer zuerst drei Steine in einer Reihe, Spalte oder Diagonale hat, gewinnt.</li>
+        <li>Nach Spielende auf „Reconnect“ klicken, um ein neues Spiel zu starten.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="console-title">
+      <h2 id="console-title">Konsole</h2>
+      <iframe id="console" title="TicTacToe-Konsole"></iframe>
+    </section>
+  </main>
+
+  <footer>
+    Backend-Version: <span id="backend-version">wird geladen …</span>
+    · Frontend-Version: <span id="frontend-version">wird geladen …</span>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
