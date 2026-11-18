@@ -124,6 +124,15 @@ jobs:
       - name: Smoke test image
         run: docker run --rm "$IMAGE" java -version
 
+      # The frontend is static files only. version.txt lets the page show which
+      # release it comes from. systemd unit and nginx config are not part of the
+      # release: they describe the server and belong to the infrastructure (user_data).
+      - name: Package frontend
+        run: |
+          echo "$VERSION" > frontend/version.txt
+          (cd frontend && zip -r "../dist/tictactest-frontend-$VERSION.zip" .)
+          unzip -l "dist/tictactest-frontend-$VERSION.zip"
+
       # Release notes: commit, CHANGELOG section of this version and how to start it
       - name: Create GitHub Release
         env:
@@ -138,6 +147,7 @@ jobs:
             echo "**Starten** (Java 21): \`java -jar tictactoe-$VERSION.jar\`"
           } > notes.md
           gh release create "$GITHUB_REF_NAME" "dist/tictactoe-$VERSION.jar" "dist/tictactoe-$VERSION.jar.sha256" \
+            "dist/tictactest-frontend-$VERSION.zip" \
             --title "TicTacToe $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
