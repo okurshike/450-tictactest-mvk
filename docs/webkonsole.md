@@ -32,11 +32,11 @@ Im Dev Container, mit den Dateien aus einem Release (JAR und `tictactest-fronten
 apk add ttyd python3
 
 # Terminal 1: Backend (Webkonsole)
-ttyd --writable -p 7681 java -jar tictactoe-1.2.0.jar
+ttyd --writable -p 7681 java -jar tictactoe-1.3.0.jar
 
 # Terminal 2: Frontend
 mkdir frontend && cd frontend
-unzip ../tictactest-frontend-1.2.0.zip
+unzip ../tictactest-frontend-1.3.0.zip
 python3 -m http.server 8000
 ```
 
