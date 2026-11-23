@@ -77,6 +77,8 @@ tofu output
 Die Einrichtung (`user_data`) dauert nach dem `apply` noch 1–2 Minuten. Kontrolle per SSH:
 `sudo cloud-init status --wait`, Log in `/var/log/cloud-init-output.log`.
 
+![SSH auf die Instanz: cloud-init ist fertig, nginx läuft](img/server-set-up.png)
+
 ## Deployment von Hand
 
 ```sh
@@ -124,7 +126,7 @@ OpenTofu: Ausgeschlossene Dateien werden weder hochgeladen noch gelöscht.
 
 | Schritt | Ergebnis |
 | --- | --- |
-| `tofu apply` | TODO: Outputs |
+| `tofu apply` | ![Outputs nach tofu apply](img/tofu-apply.png) |
 | Release A (`v1.3.0`) deployt | TODO: Screenshot Frontend mit Backend 1.3.0 / Frontend 1.3.0 |
 | Release B (`v1.4.0`, sichtbare Änderung im Frontend) deployt | TODO: Screenshot |
 | `tofu plan` nach Release B | TODO: muss „No changes“ zeigen |
@@ -135,4 +137,4 @@ OpenTofu: Ausgeschlossene Dateien werden weder hochgeladen noch gelöscht.
 | --- | --- | --- |
 | Learner-Lab-Session beenden, neue starten | Instanz startet neu, Elastic IP bleibt, systemd startet ttyd mit der Version aus `/etc/tictactest.env` | TODO |
 | Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | TODO |
-| `tofu destroy` + `tofu apply` | Neue Elastic IP, neuer Bucket-Name, neue Instanz-ID. Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | TODO |
+| `tofu destroy` + `tofu apply` | Neue Elastic IP, neue Instanz-ID. Der Bucket-Name bleibt (enthält die Account-ID). Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | TODO |
