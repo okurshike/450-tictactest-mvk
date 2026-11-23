@@ -17,7 +17,7 @@ output "instance_id" {
 }
 
 output "frontend_bucket" {
-  value = aws_s3_bucket.frontend.id
+  value = terraform_data.frontend_bucket.output
 }
 
 output "public_ip" {
