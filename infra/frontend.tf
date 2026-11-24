@@ -2,10 +2,14 @@
 # Kein aws_s3_bucket: der Provider liest dabei immer die Object-Lock-Konfiguration,
 # und das verbietet die Service Control Policy des Learner Labs (AccessDenied).
 # Darum legt die AWS CLI den Bucket an und löscht ihn bei tofu destroy samt Inhalt.
-data "aws_caller_identity" "current" {}
+# Zufälliger Suffix statt bucket_prefix: Bucket-Namen sind weltweit eindeutig
+resource "random_id" "frontend_bucket" {
+  byte_length = 4
+}
 
 resource "terraform_data" "frontend_bucket" {
-  input = "tictactest-frontend-${data.aws_caller_identity.current.account_id}" # Bucket-Namen sind weltweit eindeutig
+  input            = "tictactest-frontend-${random_id.frontend_bucket.hex}"
+  triggers_replace = [random_id.frontend_bucket.hex] # neuer Name = neuer Bucket, sonst laufen die Provisioner nicht
 
   provisioner "local-exec" {
     command = "aws s3 mb s3://${self.input} --region ${var.region}"
