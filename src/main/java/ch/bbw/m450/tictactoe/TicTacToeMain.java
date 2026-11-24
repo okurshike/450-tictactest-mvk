@@ -15,7 +15,7 @@ public class TicTacToeMain {
 	public static final int BOARD_SIZE = 9;
 
 	public static void main(String[] args) {
-		System.out.println("Willkommen bei TicTacTest!");
+		System.out.println("Willkommen bei TicTacTest! Viel Glück.");
 		try {
 			play(new HumanPlayer(), new GreedyPlayer());
 		} catch (NoSuchElementException e) { // input closed (Ctrl-D / Ctrl-Z or end of a pipe)
