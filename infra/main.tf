@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
   # shortcut: State liegt lokal und ist nicht geteilt, bei Arbeit im Team auf ein S3-Backend wechseln
 }

@@ -151,6 +151,32 @@ jobs:
             --title "TicTacToe $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
+  # Which parts changed since the previous release tag? Only those get deployed.
+  changes:
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # all tags, to find the previous release
+      - id: diff
+        run: sh scripts/changed-parts.sh "$GITHUB_REF_NAME" | tee -a "$GITHUB_OUTPUT"
+
+  # Called here and not via "on: release": a release created with GITHUB_TOKEN
+  # does not start other workflows.
+  deploy:
+    needs: [build, changes]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.build.outputs.version }}
+      backend: ${{ needs.changes.outputs.backend == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+    secrets: inherit
+
   # Bump PR: the new image is only used after this PR is reviewed and merged
   # (with green CI on the new image). That merge is the release of the image.
   bump-devcontainer:
