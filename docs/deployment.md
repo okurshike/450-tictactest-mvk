@@ -106,6 +106,7 @@ Alternative per SSH: `ssh ec2-user@<ip> "echo VERSION=$V | sudo tee /etc/tictact
 rm -rf /tmp/frontend && mkdir /tmp/frontend && cd /tmp/frontend
 curl -fsSLO "https://github.com/okurshike/450-tictactest-mvk/releases/download/v$V/tictactest-frontend-$V.zip"
 unzip -q "tictactest-frontend-$V.zip" && rm "tictactest-frontend-$V.zip"
+find . -type f -exec touch {} +   # sonst überspringt sync gleich grosse, ältere Dateien (Rollback)
 aws s3 sync . "s3://$BUCKET" --delete --exclude config.js
 curl -s "http://$BUCKET.s3-website-us-east-1.amazonaws.com/version.txt"   # muss $V zeigen
 ```
@@ -135,9 +136,9 @@ OpenTofu: Ausgeschlossene Dateien werden weder hochgeladen noch gelöscht.
 
 | Experiment | Erwartung | Ergebnis |
 | --- | --- | --- |
-| Learner-Lab-Session beenden, neue starten | Instanz startet neu, Elastic IP bleibt, systemd startet ttyd mit der Version aus `/etc/tictactest.env` | TODO |
-| Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | TODO |
-| `tofu destroy` + `tofu apply` | Neue Elastic IP, neuer Bucket-Name, neue Instanz-ID. Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | TODO |
+| Learner-Lab-Session beenden, neue starten | Instanz startet neu, Elastic IP bleibt, systemd startet ttyd mit der Version aus `/etc/tictactest.env` | Direkt nach Start Lab: Frontend (S3) erreichbar, Backend „unbekannt“, weil die Instanz noch bootete. Einige Minuten später ohne jeden Eingriff: gleiche IP 32.199.64.31, gleiche URLs, `/version` meldet weiterhin 1.4.0. Die App läuft also wieder von selbst, nur mit Verzögerung. |
+| Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | `Environment=TEST=1` in der Unit: `tofu plan` zeigt `aws_instance.tictactest must be replaced` (`user_data` forces replacement) und `aws_eip_association` must be replaced, *2 to add, 0 to change, 2 to destroy*. Die Elastic IP selbst bleibt. Die neue Instanz startet ohne `/etc/tictactest.env`, also muss die Version danach neu deployt werden (Deploy von Hand). Änderung danach zurückgenommen. |
+| `tofu destroy` + `tofu apply` | Neue Elastic IP, neuer Bucket-Name, neue Instanz-ID. Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | Durchgespielt beim Wechsel auf ein neues Learner-Lab-Konto (leeres Konto, entspricht `destroy` + `apply`) und beim Umstellen auf zufällige Bucket-Namen: neue Instanz-ID, neue IP, neuer Bucket-Name, neue Frontend-URL. Danach `sh scripts/github-aws-config.sh` und Backend und Frontend neu deployen. |
 
 ## Automatisches Deployment (Auftrag 3)
 
@@ -228,10 +229,10 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 
 | Test | Ergebnis |
 | --- | --- |
-| Rollback auf `1.3.0` | TODO |
-| Kaputter Release (`9.9.9`) | TODO |
-| `tofu destroy` + `tofu apply` | TODO |
-| Abgelaufene Credentials | TODO |
+| Rollback auf `1.3.0` | Erster [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488916730): Backend 1.3.0, Frontend-Prüfung rot („serves 1.7.0 instead of 1.3.0“), weil `aws s3 sync` gleich grosse, lokal ältere Dateien überspringt. Behoben mit `touch` vor dem Sync, danach [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489430044) grün: Backend und Frontend 1.3.0. |
+| Kaputter Release (`9.9.9`) | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489568872) rot: „Deployment of 9.9.9 failed on the instance“, Frontend-Download 404, Frontend unverändert. Mit Deploy `1.7.0` ([Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489644194)) lief nach 21 s wieder eine funktionierende Version. |
+| `tofu destroy` + `tofu apply` | Beim Wechsel des Learner-Lab-Kontos durchgespielt: neue Instanz-ID, neue IP, neuer Bucket. Ablauf: `tofu apply`, `sh scripts/github-aws-config.sh` (passt `INSTANCE_ID`, `FRONTEND_BUCKET`, `VERSION_URL`, `FRONTEND_URL` an), dann Deploy von Hand mit der aktuellen Version. |
+| Abgelaufene Credentials | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45484135143): rot im ersten Schritt `Check AWS credentials` mit `ExpiredToken` und der Meldung „AWS credentials missing or expired …“. Nichts wurde deployt. Danach Credentials erneuert, Skript ausgeführt, Deploy von Hand. |
 
 - **Rollback auf `v1.2.0`** geht nicht vollständig: Das Frontend-Archiv gibt es erst seit `v1.3.0`, der Download
   liefert 404. Darum Rollback auf `1.3.0`.
@@ -246,10 +247,10 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 
 | Release | Änderung | `changes` | Ergebnis |
 | --- | --- | --- | --- |
-| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | TODO |
-| `v1.6.0` | eigener Player fest in `main()` | backend=true, frontend=false | TODO |
-| `v1.7.0` | beides | backend=true, frontend=true | TODO |
-| Push auf `main` ohne Tag | Doku | kein Release, kein Deploy | TODO |
+| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45486013945): nur `deploy / frontend`, Backend übersprungen. Live: Backend 1.4.0, Frontend 1.5.0 ![v1.5.0](img/v1.5.0.png) |
+| `v1.6.0` | Begrüssung in `main()` | backend=true, frontend=false | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45487053829): nur `deploy / backend`, Frontend übersprungen. Live: Backend 1.6.0, Frontend 1.5.0 ![v1.6.0](img/v1.6.0.png) |
+| `v1.7.0` | Farbe und Begrüssung | backend=true, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488058769): beide Deploy-Jobs grün. Live: Backend 1.7.0, Frontend 1.7.0 ![v1.7.0](img/v1.7.0.png) |
+| Push auf `main` ohne Tag | Dev-Container-Bump (577c715) | kein Release, kein Deploy | Nur [CI](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709806) und [Coverage History](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709624) liefen, kein Release- oder Deploy-Lauf |
 
 ### Reflexion und Promotion
 
