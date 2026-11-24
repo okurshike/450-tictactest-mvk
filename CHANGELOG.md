@@ -5,6 +5,11 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-24
+
+### Changed
+- Frontend: grüner Hintergrund statt blau (Nachweis: Nur-Frontend-Release).
+
 ## [1.4.0] - 2026-11-23
 
 ### Changed

@@ -1,5 +1,5 @@
 :root {
-  --bg: #dbe4ff;
+  --bg: #d6f5ec;
   --text: #1d2228;
   --muted: #5a6470;
   --card: #ffffff;
@@ -9,7 +9,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: rgb(14, 34, 100);
+    --bg: rgb(8, 70, 62);
     --text: #e6e9ed;
     --muted: #9aa4af;
     --card: #1e2227;
