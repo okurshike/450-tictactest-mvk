@@ -5,7 +5,7 @@ plugins {
 }
 
 // Single source of the version. The release tag must be "v" + version (checked in docker-publish.yml).
-version = '1.6.0'
+version = '1.7.0'
 
 repositories {
 	mavenCentral()
