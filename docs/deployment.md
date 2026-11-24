@@ -106,6 +106,7 @@ Alternative per SSH: `ssh ec2-user@<ip> "echo VERSION=$V | sudo tee /etc/tictact
 rm -rf /tmp/frontend && mkdir /tmp/frontend && cd /tmp/frontend
 curl -fsSLO "https://github.com/okurshike/450-tictactest-mvk/releases/download/v$V/tictactest-frontend-$V.zip"
 unzip -q "tictactest-frontend-$V.zip" && rm "tictactest-frontend-$V.zip"
+find . -type f -exec touch {} +   # sonst überspringt sync gleich grosse, ältere Dateien (Rollback)
 aws s3 sync . "s3://$BUCKET" --delete --exclude config.js
 curl -s "http://$BUCKET.s3-website-us-east-1.amazonaws.com/version.txt"   # muss $V zeigen
 ```
@@ -246,9 +247,9 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 
 | Release | Änderung | `changes` | Ergebnis |
 | --- | --- | --- | --- |
-| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45486013945): nur `deploy / frontend`, Backend übersprungen. Live: Backend 1.4.0, Frontend 1.5.0 |
+| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45486013945): nur `deploy / frontend`, Backend übersprungen. Live: Backend 1.4.0, Frontend 1.5.0 ![v1.5.0](img/v1.5.0.png) |
 | `v1.6.0` | Begrüssung in `main()` | backend=true, frontend=false | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45487053829): nur `deploy / backend`, Frontend übersprungen. Live: Backend 1.6.0, Frontend 1.5.0 ![v1.6.0](img/v1.6.0.png) |
-| `v1.7.0` | Farbe und Begrüssung | backend=true, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488058769): beide Deploy-Jobs grün. Live: Backend 1.7.0, Frontend 1.7.0 |
+| `v1.7.0` | Farbe und Begrüssung | backend=true, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488058769): beide Deploy-Jobs grün. Live: Backend 1.7.0, Frontend 1.7.0 ![v1.7.0](img/v1.7.0.png) |
 | Push auf `main` ohne Tag | Dev-Container-Bump (577c715) | kein Release, kein Deploy | Nur [CI](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709806) und [Coverage History](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709624) liefen, kein Release- oder Deploy-Lauf |
 
 ### Reflexion und Promotion
