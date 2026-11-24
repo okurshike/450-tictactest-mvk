@@ -64,36 +64,19 @@ gleich guten Zügen nur einen anderen, ebenso guten Zug. Die entfernte Ausgabe d
 
 ## Infrastruktur (OpenTofu / AWS)
 
-`infra/main.tf` beschreibt eine EC2-Instanz (`t2.micro`), die per SSH erreichbar ist.
+`infra/` beschreibt die Umgebung der Web-Konsole: EC2-Instanz mit Elastic IP, nginx und ttyd als Dienst, dazu das Frontend als S3 Static Website. Aufbau, Deployment von Hand und automatisch, Secrets-Konzept und Experimente: [docs/deployment.md](docs/deployment.md).
 
 **Rolle von Provider und Ressource:**
 
 - Der **Provider** (`aws`) ist das Plugin, das OpenTofu mit der AWS-API verbindet. Er legt fest, welche Plattform und welche Region verwendet wird, und führt die Änderungen dort aus.
-- Eine **Ressource** ist ein Objekt, das OpenTofu anlegt und verwaltet. Hier sind es `aws_key_pair` (öffentlicher SSH-Schlüssel), `aws_security_group` (Firewall, Port 22) und `aws_instance` (der Server).
-- **Variablen** machen Region, Instanztyp, Schlüsselpfad und SSH-Bereich konfigurierbar. **Outputs** geben nach dem Start die öffentliche IP, den DNS-Namen und den SSH-Befehl aus.
+- Eine **Ressource** ist ein Objekt, das OpenTofu anlegt und verwaltet, zum Beispiel `aws_instance` (der Server), `aws_eip` (feste IP), `aws_security_group` (Firewall) und die S3-Einstellungen fürs Frontend.
+- **Variablen** machen Region, Instanztyp, Schlüsselpfad und SSH-Bereich konfigurierbar. **Outputs** liefern die URLs, die Instanz-ID und den Bucket-Namen für das Deployment.
 
-**Ablauf** (PowerShell, AWS-Zugangsdaten müssen konfiguriert sein):
-
-```
-ssh-keygen -t ed25519 -f "$HOME\.ssh\tictactest"
-cd infra
-tofu init
-$ip = (Invoke-RestMethod https://checkip.amazonaws.com).Trim()
-tofu apply -var "ssh_cidr=$ip/32"
-ssh -i "$HOME\.ssh\tictactest" ec2-user@<public_ip>
-tofu destroy -var "ssh_cidr=$ip/32"
-```
+**Ablauf:** siehe [docs/deployment.md](docs/deployment.md#infrastruktur-aufbauen).
 
 `infra/.terraform.lock.hcl` ist committet und legt die genaue Version des AWS-Providers fest (inkl. Prüfsummen), damit `tofu init` überall denselben Provider lädt.
 
 Der private Schlüssel liegt nur in `~/.ssh` und nie im Repository. Auch `*.tfstate` und `*.tfvars` sind über `.gitignore` ausgeschlossen, weil sie sensible Werte enthalten können.
-
-**Vorbereitung für das Deployment als Online-Container:** Der Server ist im Repository versioniert und lässt sich jederzeit gleich neu aufbauen. Für das Deployment kommen später dazu:
-
-1. Ein Image der Anwendung auf GHCR, analog zum Dev-Container-Image in `docker-publish.yml`.
-2. Docker auf der Instanz, zum Beispiel über `user_data` in `aws_instance`.
-3. Eine weitere `ingress`-Regel in der Security Group für den Port der Anwendung.
-4. Ein Deployment-Schritt, der sich per SSH verbindet und den Container startet.
 
 ## Release- und Versionierungskonzept
 
