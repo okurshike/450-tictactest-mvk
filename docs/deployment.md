@@ -136,8 +136,8 @@ OpenTofu: Ausgeschlossene Dateien werden weder hochgeladen noch gelöscht.
 
 | Experiment | Erwartung | Ergebnis |
 | --- | --- | --- |
-| Learner-Lab-Session beenden, neue starten | Instanz startet neu, Elastic IP bleibt, systemd startet ttyd mit der Version aus `/etc/tictactest.env` | TODO |
-| Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | TODO |
+| Learner-Lab-Session beenden, neue starten | Instanz startet neu, Elastic IP bleibt, systemd startet ttyd mit der Version aus `/etc/tictactest.env` | `Environment=TEST=1` in der Unit: `tofu plan` zeigt `aws_instance.tictactest must be replaced` (`user_data` forces replacement) und `aws_eip_association` must be replaced, *2 to add, 0 to change, 2 to destroy*. Die Elastic IP selbst bleibt. Die neue Instanz startet ohne `/etc/tictactest.env`, also muss die Version danach neu deployt werden (Deploy von Hand). Änderung danach zurückgenommen. |
+| Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | Durchgespielt beim Wechsel auf ein neues Learner-Lab-Konto (leeres Konto, entspricht `destroy` + `apply`) und beim Umstellen auf zufällige Bucket-Namen: neue Instanz-ID, neue IP, neuer Bucket-Name, neue Frontend-URL. Danach `sh scripts/github-aws-config.sh` und Backend und Frontend neu deployen. |
 | `tofu destroy` + `tofu apply` | Neue Elastic IP, neuer Bucket-Name, neue Instanz-ID. Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | TODO |
 
 ## Automatisches Deployment (Auftrag 3)
