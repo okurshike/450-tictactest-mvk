@@ -228,10 +228,10 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 
 | Test | Ergebnis |
 | --- | --- |
-| Rollback auf `1.3.0` | TODO |
-| Kaputter Release (`9.9.9`) | TODO |
-| `tofu destroy` + `tofu apply` | TODO |
-| Abgelaufene Credentials | TODO |
+| Rollback auf `1.3.0` | Erster [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488916730): Backend 1.3.0, Frontend-Prüfung rot („serves 1.7.0 instead of 1.3.0“), weil `aws s3 sync` gleich grosse, lokal ältere Dateien überspringt. Behoben mit `touch` vor dem Sync, danach [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489430044) grün: Backend und Frontend 1.3.0. |
+| Kaputter Release (`9.9.9`) | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489568872) rot: „Deployment of 9.9.9 failed on the instance“, Frontend-Download 404, Frontend unverändert. Mit Deploy `1.7.0` ([Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45489644194)) lief nach 21 s wieder eine funktionierende Version. |
+| `tofu destroy` + `tofu apply` | Beim Wechsel des Learner-Lab-Kontos durchgespielt: neue Instanz-ID, neue IP, neuer Bucket. Ablauf: `tofu apply`, `sh scripts/github-aws-config.sh` (passt `INSTANCE_ID`, `FRONTEND_BUCKET`, `VERSION_URL`, `FRONTEND_URL` an), dann Deploy von Hand mit der aktuellen Version. |
+| Abgelaufene Credentials | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45484135143): rot im ersten Schritt `Check AWS credentials` mit `ExpiredToken` und der Meldung „AWS credentials missing or expired …“. Nichts wurde deployt. Danach Credentials erneuert, Skript ausgeführt, Deploy von Hand. |
 
 - **Rollback auf `v1.2.0`** geht nicht vollständig: Das Frontend-Archiv gibt es erst seit `v1.3.0`, der Download
   liefert 404. Darum Rollback auf `1.3.0`.
@@ -246,10 +246,10 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 
 | Release | Änderung | `changes` | Ergebnis |
 | --- | --- | --- | --- |
-| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | TODO |
-| `v1.6.0` | eigener Player fest in `main()` | backend=true, frontend=false | TODO |
-| `v1.7.0` | beides | backend=true, frontend=true | TODO |
-| Push auf `main` ohne Tag | Doku | kein Release, kein Deploy | TODO |
+| `v1.5.0` | Farbe in `frontend/style.css` | backend=false, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45486013945): nur `deploy / frontend`, Backend übersprungen. Live: Backend 1.4.0, Frontend 1.5.0 |
+| `v1.6.0` | Begrüssung in `main()` | backend=true, frontend=false | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45487053829): nur `deploy / backend`, Frontend übersprungen. Live: Backend 1.6.0, Frontend 1.5.0 ![v1.6.0](img/v1.6.0.png) |
+| `v1.7.0` | Farbe und Begrüssung | backend=true, frontend=true | [Lauf](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488058769): beide Deploy-Jobs grün. Live: Backend 1.7.0, Frontend 1.7.0 |
+| Push auf `main` ohne Tag | Dev-Container-Bump (577c715) | kein Release, kein Deploy | Nur [CI](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709806) und [Coverage History](https://github.com/okurshike/450-tictactest-mvk/actions/runs/45488709624) liefen, kein Release- oder Deploy-Lauf |
 
 ### Reflexion und Promotion
 
