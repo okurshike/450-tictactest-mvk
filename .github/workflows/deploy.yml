@@ -96,8 +96,12 @@ jobs:
 
       # --delete removes files that are gone in this release. config.js comes from
       # OpenTofu (address of the instance): excluded files are neither uploaded nor deleted.
+      # touch: sync skips files of the same size that are older locally, which is the case
+      # in a rollback (version.txt "1.3.0" vs "1.7.0"), so make every file newer first.
       - name: Upload to S3
-        run: aws s3 sync site "s3://${{ vars.FRONTEND_BUCKET }}" --delete --exclude config.js
+        run: |
+          find site -type f -exec touch {} +
+          aws s3 sync site "s3://${{ vars.FRONTEND_BUCKET }}" --delete --exclude config.js
 
       - name: Check delivered frontend
         env:
