@@ -139,14 +139,14 @@ OpenTofu: Ausgeschlossene Dateien werden weder hochgeladen noch gelöscht.
 | Einrichtung ändern (z. B. neue `Environment=` in der Unit) | `tofu plan` zeigt `aws_instance` **must be replaced** (wegen `user_data_replace_on_change`). Elastic IP bleibt, neue Instanz hat keine `/etc/tictactest.env`: Version muss neu deployt werden | TODO |
 | `tofu destroy` + `tofu apply` | Neue Elastic IP, neuer Bucket-Name, neue Instanz-ID. Danach Backend und Frontend neu deployen (Auftrag 3: dieselben Werte in GitHub anpassen) | TODO |
 
-# Automatisches Deployment (Auftrag 3)
+## Automatisches Deployment (Auftrag 3)
 
 Ein Tag `v*` startet den Release-Workflow (`docker-publish.yml`). Nach dem Release bestimmt der Job `changes`
 mit `scripts/changed-parts.sh`, welche Teile sich seit dem vorherigen Release geändert haben, und ruft
 `deploy.yml` nur für diese Teile auf. Deployt werden die Artefakte aus dem GitHub-Release, nichts wird neu gebaut.
 `tofu apply` bleibt manuell. Ein Push auf `main` ohne Tag startet nur CI, kein Deployment.
 
-## Secrets-Konzept
+### Secrets-Konzept
 
 | Zugangsdaten | Herkunft | Gültigkeit | Ablage |
 | --- | --- | --- | --- |
@@ -182,7 +182,7 @@ OIDC-Token aus. Eine IAM-Rolle in AWS vertraut diesem Token, eingeschränkt auf 
 Environment (`aws-actions/configure-aws-credentials` mit `role-to-assume`). Es gibt dann gar keine langlebigen
 Secrets mehr. Im Learner Lab geht das nicht, weil keine eigenen IAM-Rollen erlaubt sind.
 
-## Änderungen zwischen Releases erkennen
+### Änderungen zwischen Releases erkennen
 
 | Pfad | Teil |
 | --- | --- |
@@ -201,7 +201,7 @@ Backend-Release wäre.
 - **Warum der `paths`-Filter nicht hilft:** GitHub wertet `paths` bei Tag-Pushes nicht aus, und er würde mit dem
   Push vergleichen, nicht mit dem vorherigen Release.
 
-## Backend deployen
+### Backend deployen
 
 Per SSM schreibt der Workflow die Version nach `/etc/tictactest.env` und startet den Dienst neu. Die Instanz
 lädt das JAR dieses Releases selbst (mit Prüfsumme). Danach muss das JAR auf der Instanz ein ganzes Spiel
@@ -214,7 +214,7 @@ spielen, und `/version` muss innerhalb von 2 Minuten genau die neue Version meld
 - **Nach einem Neustart im Learner Lab** liest systemd die Version aus `/etc/tictactest.env` auf der Disk der
   Instanz.
 
-## Frontend deployen
+### Frontend deployen
 
 Der Inhalt von `tictactest-frontend-<version>.zip` aus dem Release wird mit `aws s3 sync --delete` hochgeladen.
 Ohne `config.js` wüsste das Frontend die Adresse der Konsole nicht, das iframe bliebe leer und die
@@ -222,7 +222,7 @@ Backend-Version „unbekannt“. Zwei Dinge schützen die Datei: `--exclude conf
 werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem Deployment `version.txt` und
 `config.js` abruft.
 
-## Gezielt eine Version deployen
+### Gezielt eine Version deployen
 
 **Actions → Deploy → Run workflow** mit der Version (ohne `v`) deployt Backend und Frontend dieser Version.
 
@@ -242,7 +242,7 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
   `sh scripts/github-aws-config.sh` überträgt die neuen Werte nach GitHub, danach Deploy von Hand mit der
   aktuellen Version.
 
-## Nachweis der Trennung
+### Nachweis der Trennung
 
 | Release | Änderung | `changes` | Ergebnis |
 | --- | --- | --- | --- |
@@ -251,9 +251,9 @@ werden weder hochgeladen noch gelöscht) und der Prüfschritt, der nach jedem De
 | `v1.7.0` | beides | backend=true, frontend=true | TODO |
 | Push auf `main` ohne Tag | Doku | kein Release, kein Deploy | TODO |
 
-## Reflexion und Promotion
+### Reflexion und Promotion
 
-### Weg einer Änderung
+#### Weg einer Änderung
 
 ```mermaid
 flowchart LR
@@ -276,7 +276,7 @@ flowchart LR
 **Automatisiert:** Build, Release, Änderungserkennung, Deployment, Prüfung der laufenden Version.
 **Manuell:** `tofu apply`, Credentials nach jedem Lab-Start erneuern (`scripts/github-aws-config.sh`).
 
-### Mehrere Umgebungen
+#### Mehrere Umgebungen
 
 - Ein State pro Umgebung, über Workspaces oder je eine `.tfvars`-Datei (dev, staging, prod).
 - Der Umgebungsname muss in jeden Ressourcennamen: `key_name = "tictactest"` und der Name der Security Group
@@ -284,7 +284,7 @@ flowchart LR
 - Gleich bleibt der Aufbau (Instanz, EIP, Bucket, Dienst). Unterschiedlich sind Name, Instanzgrösse, erlaubte
   SSH-Adressen und die Zugangsdaten.
 
-### Promotion-Strategie
+#### Promotion-Strategie
 
 - **Dasselbe Artefakt** geht nach dev, staging und prod. Einmal bauen, damit in prod genau das läuft, was
   getestet wurde. Ein neuer Build pro Umgebung könnte andere Abhängigkeiten enthalten.
