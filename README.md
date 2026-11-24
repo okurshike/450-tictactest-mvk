@@ -77,6 +77,7 @@ gleich guten Zügen nur einen anderen, ebenso guten Zug. Die entfernte Ausgabe d
 `infra/.terraform.lock.hcl` ist committet und legt die genaue Version des AWS-Providers fest (inkl. Prüfsummen), damit `tofu init` überall denselben Provider lädt.
 
 Der private Schlüssel liegt nur in `~/.ssh` und nie im Repository. Auch `*.tfstate` und `*.tfvars` sind über `.gitignore` ausgeschlossen, weil sie sensible Werte enthalten können.
+
 ## Release- und Versionierungskonzept
 
 Semantic Versioning, Release per Tag `vX.Y.Z`, Bump-PR für das Dev-Container-Image und Branch-Schutz:
